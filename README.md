@@ -14,8 +14,6 @@ Traditional flow control mechanisms like PFC and CBFC require static buffer rese
 
 This repository contains the FPGA prototype implementation of InfiniFlow, targeting 100Gbps line-rate performance on Xilinx Alveo platforms.
 
----
-
 ## 🚀 Key Features
 
 * **Massive VC Scalability:** Supports thousands of VCs (configurable via `QUEUE_INDEX_WIDTH`), enabling per-flow isolation to eliminate Head-of-Line Blocking (HoLB).
@@ -25,8 +23,6 @@ This repository contains the FPGA prototype implementation of InfiniFlow, target
     * Dual CMAC (100G Ethernet) integration for Upstream/Downstream nodes.
     * Efficient CDC (Clock Domain Crossing) between User Logic (100MHz) and PHY Logic (322MHz).
     * Pipeline-optimized Traffic Injector and Scheduler.
-
----
 
 ## 📂 Repository Structure
 
@@ -46,7 +42,6 @@ Infiniflow/
 │   │   ├── massive_traffic_injector.v # Traffic generation logic
 │   │   ├── pkt_send_simulator.v     # Packet simulation & FCP handling
 │   │   ├── tx_scheduler_rr.v        # Round-Robin Scheduler
-│   │   ├── system_top_cmac.v        # CMAC wrapper
 │   │   └── ...
 │   └── ip/              # IP Core configurations (.xci)
 │       ├── cmac_usplus_*.xci
@@ -86,7 +81,6 @@ Two `cmac_usplus` instances mimic the Upstream and Downstream nodes connected vi
 | `FCP_AXIS_WIDTH` | 128 | Width for Flow Control Packets. |
 | `QMAX` / `QMIN` | 6 / 3 | Dynamic threshold parameters for backlog management. |
 
----
 
 ## ⚡ Getting Started
 
@@ -126,9 +120,6 @@ vivado ./work/Infiniflow.xpr
 ```
 
 
-
----
-
 ## 🔍 Simulation & Verification
 
 The verification strategy combines behavioral simulation for logic correctness and on-chip debugging for physical link validation.
@@ -154,13 +145,8 @@ For full system verification including the 100G Ethernet PHY, we utilize Xilinx 
 * `fcp_valid` / `fcp_fccl`: Real-time monitoring of Flow Control Packet exchanges.
 * `m_axis_pkt_tvalid`: Observation of actual packet transmission throughput and flow control throttling.
 
----
 
 ## 📧 Contact
 
 **Author:** mkxue-FNIL
 **Project:** Part of the High-Performance Large-Scale Traffic Replay Instrument research.
-
-```
-
-```
