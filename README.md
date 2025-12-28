@@ -1,8 +1,4 @@
-这是一个包含了所有要求（架构图、模块详细介绍、仿真说明更新、以及关键的 License 警告）的完整 `README.md` 文件。您可以直接复制使用。
 
----
-
-```markdown
 # InfiniFlow: Optimal Transmission via Massive Virtual Channel Scalability
 
 ![Language](https://img.shields.io/badge/Language-Verilog%20%7C%20SystemVerilog-blue)
@@ -59,8 +55,6 @@ Infiniflow/
     └── system_architecture.png
 
 ```
-
----
 
 ## 🛠️ Hardware Architecture
 
