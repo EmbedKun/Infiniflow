@@ -148,5 +148,4 @@ For full system verification including the 100G Ethernet PHY, we utilize Xilinx 
 
 ## 📧 Contact
 
-**Author:** mkxue-FNIL
-**Project:** Part of the High-Performance Large-Scale Traffic Replay Instrument research.
+**Author:** mkxue-FNIL 2819422837@qq.com
