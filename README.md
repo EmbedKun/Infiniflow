@@ -99,7 +99,7 @@ We use a Tcl script to reconstruct the project to ensure a clean environment.
 
 1. **Clone the repository:**
 ```bash
-git clone [https://github.com/mkxue-FNIL/Infiniflow.git](https://github.com/mkxue-FNIL/Infiniflow.git)
+git clone https://github.com/EmbedKun/Infiniflow.git
 cd Infiniflow
 
 ```
