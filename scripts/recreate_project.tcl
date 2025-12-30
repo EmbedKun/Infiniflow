@@ -25,8 +25,6 @@ proc checkRequiredFiles { origin_dir} {
    "${origin_dir}/src/hdl/fcp_source_adapter.v" \
    "${origin_dir}/src/hdl/tdp_bram.v" \
    "${origin_dir}/src/hdl/bsfc_system_top.sv" \
-   "${origin_dir}/src/hdl/system_top_cmac_v2.v" \
-   "${origin_dir}/src/hdl/system_top_cmac.v" \
    "${origin_dir}/src/hdl/system_top_ila.v" \
    "${origin_dir}/src/ip/cmac_usplus_0/cmac_usplus_0.xci" \
    "${origin_dir}/src/ip/cmac_usplus_1/cmac_usplus_1.xci" \
@@ -48,7 +46,6 @@ proc checkRequiredFiles { origin_dir} {
    "${origin_dir}/src/hdl/priority_encoder.v" \
    "${origin_dir}/src/hdl/tx_scheduler_rr.v" \
    "${origin_dir}/src/hdl/system_top.v" \
-   "${origin_dir}/src/hdl/downstream_switch_model_bram.v" \
    "${origin_dir}/constr/co.xdc" \
    "${origin_dir}/sim/tb_system_top.sv" \
    "${origin_dir}/sim/tb_massive_traffic_injector.sv" \
@@ -182,8 +179,7 @@ set files [list \
  [file normalize "${origin_dir}/src/hdl/pkt_send_simulator.v"] \
  [file normalize "${origin_dir}/src/hdl/priority_encoder.v"] \
  [file normalize "${origin_dir}/src/hdl/tx_scheduler_rr.v"] \
- [file normalize "${origin_dir}/src/hdl/system_top.v"] \
- [file normalize "${origin_dir}/src/hdl/downstream_switch_model_bram.v"] \
+ [file normalize "${origin_dir}/src/hdl/system_top.v"]
 ]
 add_files -norecurse -fileset $obj $files
 
@@ -194,25 +190,12 @@ set files [list \
  [file normalize "${origin_dir}/src/hdl/fcp_source_adapter.v" ]\
  [file normalize "${origin_dir}/src/hdl/tdp_bram.v" ]\
  [file normalize "${origin_dir}/src/hdl/bsfc_system_top.sv" ]\
- [file normalize "${origin_dir}/src/hdl/system_top_cmac_v2.v" ]\
- [file normalize "${origin_dir}/src/hdl/system_top_cmac.v" ]\
  [file normalize "${origin_dir}/src/hdl/system_top_ila.v" ]\
 ]
 set added_files [add_files -fileset sources_1 $files]
 
-# Set 'sources_1' fileset file properties for remote files
-set file "$origin_dir/src/hdl/downstream_switch_model_bram.v"
-set file [file normalize $file]
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "is_enabled" -value "0" -objects $file_obj
-
-
 # Set 'sources_1' fileset file properties for local files
 set file "$origin_dir/src/hdl/bsfc_system_top.sv"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
-
-set file "$origin_dir/src/hdl/system_top_cmac_v2.v"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
@@ -362,7 +345,7 @@ set file [file normalize $file]
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
 set_property -name "file_type" -value "SystemVerilog" -objects $file_obj
 
-#gemini
+
 # Set 'sim_1' fileset file properties for local files
 set file "${origin_dir}/sim/tb_downstream_switch_model_bram.sv"
 set file_obj [get_files -of_objects [get_filesets sim_1] [list "*$file"]]
