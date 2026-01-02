@@ -30,25 +30,32 @@ The project follows a standard Tcl-driven directory structure for easy version c
 
 ```text
 Infiniflow/
-├── constr/              # Xilinx Design Constraints (.xdc)
-├── scripts/             # Tcl scripts for project recreation
+├── constr/                  # Xilinx Design Constraints
+│   └── co.xdc               # Pinout and Timing constraints
+├── doc/                     # Documentation and figures
+│   └── system_architecture.png
+├── scripts/                 # Tcl scripts for project recreation
 │   └── recreate_project.tcl
-├── sim/                 # SystemVerilog Testbenches
-│   ├── tb_system_top.sv # Core logic simulation (without CMAC)
-│   └── ...
+├── sim/                     # SystemVerilog Testbenches
+│   ├── tb_system_top.sv     # Top-level logic simulation, CRITIAL:NO USED NOW.
+│   ├── tb_massive_traffic_injector.sv
+│   ├── tb_tx_scheduler_rr.sv
+│   └── tb_downstream_switch_model_bram.sv
 ├── src/
-│   ├── hdl/             # RTL Source Code
-│   │   ├── bsfc_system_top.sv       # Top-level wrapper
-│   │   ├── massive_traffic_injector.v # Traffic generation logic
-│   │   ├── pkt_send_simulator.v     # Packet simulation & FCP handling
-│   │   ├── tx_scheduler_rr.v        # Round-Robin Scheduler
-│   │   └── ...
-│   └── ip/              # IP Core configurations (.xci)
-│       ├── cmac_usplus_*.xci
-│       └── ila_*.xci
-└── doc/                 # Documentation and figures
-    └── system_architecture.png
-
+│   ├── hdl/                 # RTL Source Code
+│   │   ├── bsfc_system_top.sv           # Top-level wrapper (User Logic + CMACs)
+│   │   ├── massive_traffic_injector.v   # Traffic generation & flow control engine
+│   │   ├── pkt_send_simulator.v         # Packet gen & Credit logic
+│   │   ├── tx_scheduler_rr.v            # Round-Robin Scheduler
+│   │   ├── downstream_switch_model_v2.v # Receiver/Switch simulation model
+│   │   ├── fcp_source/sink_adapter.v    # Flow Control Packet adapters
+│   │   ├── cmac_rate_meter.v            # Throughput monitoring
+│   │   └── axis_fifo.v                  # Custom FIFO wrappers
+│   └── ip/                  # IP Core configurations (.xci)
+│       ├── cmac_usplus_0/   # CMAC 0 (Upstream)
+│       ├── cmac_usplus_1/   # CMAC 1 (Downstream)
+│       └── ila_*/           # Integrated Logic Analyzers
+└── README.md
 ```
 
 ## 🛠️ Hardware Architecture

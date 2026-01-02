@@ -5,15 +5,15 @@
 module massive_traffic_injector #
 (
     // Queue Configuration
-    parameter QUEUE_INDEX_WIDTH = 18, // 2^18 = 262,144 Queues
+    parameter QUEUE_INDEX_WIDTH = 16, // 2^18 = 262,144 Queues
     parameter REQ_TAG_WIDTH = 8,
     parameter LEN_WIDTH = 16,
     parameter OP_TABLE_SIZE = 16,
     parameter PIPELINE = 3+(QUEUE_INDEX_WIDTH > 12 ? QUEUE_INDEX_WIDTH-12 : 0),
     parameter BUFFER_ADDR_WIDTH = 14, 
     // Packet Configuration
-    parameter DATA_WIDTH = 64,        // Output Packet Width
-    parameter PKT_LEN_BYTES = 64,      // Simulated Packet Length
+    parameter DATA_WIDTH = 512,        // Output Packet Width
+    parameter PKT_LEN_BYTES = 1536,      // Simulated Packet Length
     parameter QMAX = 6,
     parameter QMIN = 3,
     parameter IGNORE_FCP_MODE = 1

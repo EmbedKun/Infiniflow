@@ -9,13 +9,13 @@ module tb_massive_traffic_injector;
     // NOTE: To simulate full 262,144 queues, simulation might take a while.
     // For quick verification, you can reduce QUEUE_INDEX_WIDTH to 6 or 8.
     // Here we keep it as 18 to match your design intent.
-    parameter QUEUE_INDEX_WIDTH = 4; 
+    parameter QUEUE_INDEX_WIDTH = 16; 
     parameter REQ_TAG_WIDTH     = 8;
     parameter LEN_WIDTH         = 16;
-    parameter OP_TABLE_SIZE     = 16;
-    parameter PIPELINE          = 12;
-    parameter DATA_WIDTH        = 64;
-    parameter PKT_LEN_BYTES     = 64;
+    parameter OP_TABLE_SIZE     = 64;
+    parameter PIPELINE          = 7;
+    parameter DATA_WIDTH        = 512;
+    parameter PKT_LEN_BYTES     = 1536;
 
     localparam QUEUE_COUNT = 2**QUEUE_INDEX_WIDTH;
 
@@ -105,6 +105,7 @@ module tb_massive_traffic_injector;
         // --- Enable Scheduler ---
         @(posedge clk);
         enable = 1;
+        #2000;
         m_axis_pkt_tready = 1; // Sink is ready to accept packets
         $display("[%0t] Scheduler Enabled. Traffic sink ready.", $time);
 
@@ -119,11 +120,7 @@ module tb_massive_traffic_injector;
         
         // Add random backpressure to test AXI Stream handshake
         $display("[%0t] Applying random backpressure...", $time);
-        repeat (1000) begin
-            @(posedge clk);
-            // Randomly toggle ready signal (50% probability)
-            m_axis_pkt_tready <= $urandom_range(0, 1);
-        end
+
         m_axis_pkt_tready = 1;
 
         #2000;

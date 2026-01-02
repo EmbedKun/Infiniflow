@@ -6,7 +6,7 @@ module fcp_source_adapter #
 (
     parameter QUEUE_INDEX_WIDTH = 15,
     parameter STAT_WIDTH = 32,
-    parameter AXIS_WIDTH = 128
+    parameter AXIS_WIDTH = 512
 )
 (
     // Discrete FCP Inputs

@@ -12,11 +12,11 @@
 
 module pkt_send_simulator #
 (
-    parameter QUEUE_INDEX_WIDTH = 18, 
+    parameter QUEUE_INDEX_WIDTH = 16, 
     parameter REQ_TAG_WIDTH = 8,
     parameter LEN_WIDTH = 16,
-    parameter DATA_WIDTH = 64,
-    parameter PKT_LEN_BYTES = 64,
+    parameter DATA_WIDTH = 512,
+    parameter PKT_LEN_BYTES = 1536,
     parameter BUFFER_ADDR_WIDTH = 14, 
     parameter QMAX = 6,
     parameter QMIN = 2,
@@ -65,8 +65,8 @@ module pkt_send_simulator #
 );
 
     localparam QUEUE_COUNT = 2**QUEUE_INDEX_WIDTH;
-//    localparam PKT_WORDS = (PKT_LEN_BYTES + (DATA_WIDTH/8) - 1) / (DATA_WIDTH/8);
-    localparam PKT_WORDS = 1;
+    localparam PKT_WORDS = (PKT_LEN_BYTES + (DATA_WIDTH/8) - 1) / (DATA_WIDTH/8);
+//    localparam PKT_WORDS = 1;
     localparam INITIAL_CREDIT = 2**BUFFER_ADDR_WIDTH;
 
     // ========================================================================
@@ -274,10 +274,11 @@ module pkt_send_simulator #
     reg [2:0] tx_state;
     reg [QUEUE_INDEX_WIDTH-1:0] tx_q;
     reg [REQ_TAG_WIDTH-1:0]     tx_tag;
-    reg [15:0]                  word_cnt;
+    reg [31:0]                  word_cnt;
 
     reg [31:0] tx_calc_inflight;
     reg doorbell_req_tx;
+
     always @(posedge clk) begin
         tx_cnt_wea <= 0; fc_stop_wea <= 0;
         m_axis_pkt_tvalid <= 0; m_axis_pkt_tlast <= 0; m_axis_tx_req_status_valid <= 0;
@@ -289,23 +290,24 @@ module pkt_send_simulator #
             case (tx_state)
                 TX_IDLE: begin
                     if (!initializing) begin
-                        s_axis_tx_req_ready <= 1;
+                        
                         if (s_axis_tx_req_valid) begin
                             tx_q   <= s_axis_tx_req_queue;
                             tx_tag <= s_axis_tx_req_tag;
-                            
                             tx_cnt_addra <= s_axis_tx_req_queue;
                             fccr_addra   <= s_axis_tx_req_queue;
                             thresh_addra <= s_axis_tx_req_queue;
                             
                             tx_state <= TX_READ_INFO;
-                            s_axis_tx_req_ready <= 0;
+                            s_axis_tx_req_ready <= 1;
+                            
                         end
                     end
                 end
                 
                 TX_READ_INFO: begin
                     tx_state <= TX_CHECK;
+                    s_axis_tx_req_ready <= 0;
                 end
                 
                 TX_CHECK: begin
@@ -333,13 +335,14 @@ module pkt_send_simulator #
                 TX_SEND_PKT: begin
                     if (m_axis_pkt_tready) begin
                         m_axis_pkt_tvalid <= 1;
-                        m_axis_pkt_tdata  <= {{(DATA_WIDTH-QUEUE_INDEX_WIDTH-16){1'b0}}, tx_q, word_cnt};
+                        m_axis_pkt_tdata  <= {{(DATA_WIDTH-QUEUE_INDEX_WIDTH-32){1'b0}}, tx_q, word_cnt};
                         m_axis_pkt_tkeep  <= {DATA_WIDTH/8{1'b1}};
-                        
-                        if (word_cnt == PKT_WORDS - 1) begin
+                        if (word_cnt == PKT_WORDS-1) begin
                             m_axis_pkt_tlast <= 1;
                             tx_state <= TX_UPDATE;
-                        end else word_cnt <= word_cnt + 1;
+                        end else begin
+                            word_cnt <= word_cnt + 1;
+                        end
                     end
                 end
                 
@@ -347,13 +350,10 @@ module pkt_send_simulator #
                     tx_cnt_wea  <= 1;
                     tx_cnt_dina <= tx_cnt_douta + 1;
                     tx_cnt_addra<= tx_q; 
-                    
-                    m_axis_vc_tx_count <= tx_cnt_douta + 1;
-                    
                     m_axis_tx_req_status_len   <= PKT_LEN_BYTES;
                     m_axis_tx_req_status_tag   <= tx_tag;
                     m_axis_tx_req_status_valid <= 1;
-                    
+                    m_axis_vc_tx_count <= tx_cnt_douta + 1;
                     tx_state <= TX_IDLE;
                 end
             endcase

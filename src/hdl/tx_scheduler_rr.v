@@ -24,7 +24,7 @@ module tx_scheduler_rr #
     // Number of outstanding operations
     parameter OP_TABLE_SIZE = 16,
     // Queue index width
-    parameter QUEUE_INDEX_WIDTH = 18,
+    parameter QUEUE_INDEX_WIDTH = 16,
     // Pipeline stages
     parameter PIPELINE = 3+(QUEUE_INDEX_WIDTH > 12 ? QUEUE_INDEX_WIDTH-12 : 0)
 )
@@ -34,7 +34,6 @@ module tx_scheduler_rr #
 
     /*
      * Transmit request output (queue index)
-     * 发送请求输出，对接Tx Engine
      */
     output wire [QUEUE_INDEX_WIDTH-1:0]  m_axis_tx_req_queue,
     output wire [REQ_TAG_WIDTH-1:0]      m_axis_tx_req_tag,
@@ -43,7 +42,6 @@ module tx_scheduler_rr #
 
     /*
      * Transmit request status input
-     * 发送完成状态输入，用于释放资源
      */
     input  wire [LEN_WIDTH-1:0]          s_axis_tx_req_status_len,
     input  wire [REQ_TAG_WIDTH-1:0]      s_axis_tx_req_status_tag,
@@ -51,7 +49,6 @@ module tx_scheduler_rr #
 
     /*
      * Doorbell input
-     * 门铃输入，触发调度的核心信号
      */
     input  wire [QUEUE_INDEX_WIDTH-1:0]  s_axis_doorbell_queue,
     input  wire                          s_axis_doorbell_valid,
@@ -59,8 +56,8 @@ module tx_scheduler_rr #
     /*
      * Control
      */
-    input  wire                          enable, // 全局使能
-    output wire                          active  // 指示是否有队列处于活跃状态
+    input  wire                          enable, 
+    output wire                          active  
 );
 
 parameter QUEUE_COUNT = 2**QUEUE_INDEX_WIDTH;
@@ -426,7 +423,7 @@ always @* begin
 
         queue_ram_read_ptr = op_table_queue[finish_ptr_reg];
         queue_ram_addr_pipeline_next[0] = op_table_queue[finish_ptr_reg];
-    end else if (enable && op_table_start_ptr_valid && axis_scheduler_fifo_out_valid && (!m_axis_tx_req_valid || m_axis_tx_req_ready) && !op_req_pipe_reg && !op_req_pipe_hazard) begin
+    end else if (enable && op_table_start_ptr_valid && axis_scheduler_fifo_out_valid && (!m_axis_tx_req_valid || m_axis_tx_req_ready) && !op_req_pipe_reg[0] && !op_req_pipe_hazard) begin
         // transmit request
         op_req_pipe_next[0] = 1'b1;
 
