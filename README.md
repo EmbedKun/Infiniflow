@@ -1,158 +1,148 @@
-
 # InfiniFlow: Optimal Transmission via Massive Virtual Channel Scalability
 
-![Language](https://img.shields.io/badge/Language-Verilog%20%7C%20SystemVerilog-blue)
-![Platform](https://img.shields.io/badge/Platform-Xilinx%20UltraScale%2B%20%28U280%29-red)
-![Toolchain](https://img.shields.io/badge/Toolchain-Vivado%202020.2-green)
-![License](https://img.shields.io/badge/License-BSD--2--Clause-orange)
+[![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Xilinx%20Alveo%20U280-red.svg)](https://www.xilinx.com/products/boards-and-kits/alveo/u280.html)
+[![Toolchain](https://img.shields.io/badge/Toolchain-Vivado%202020.2-green.svg)](https://www.xilinx.com/products/design-tools/vivado.html)
+[![Language](https://img.shields.io/badge/Language-SystemVerilog-blue.svg)]()
 
 ## 📖 Abstract
 
-**InfiniFlow** is a novel flow control mechanism designed to support massive Virtual Channel (VC) scalability in Data Center Networks (DCNs).
+**InfiniFlow** is a groundbreaking flow control mechanism designed to solve the scalability bottleneck in next-generation Data Center Networks (DCNs).
 
-Traditional flow control mechanisms like PFC and CBFC require static buffer reservations for each VC, creating a linear $O(N)$ scaling bottleneck that limits the number of supported VCs. InfiniFlow challenges this limitation by introducing **Upstream-Driven Dynamic Buffer Sharing**. By maintaining a unified credit pool at the upstream node, InfiniFlow decouples the buffer requirements from the number of VCs, reducing buffer scaling complexity to $O(1)$.
+Traditional mechanisms like PFC and CBFC rely on static buffer reservations, creating a linear **$O(N)$** memory scaling penalty that severely limits the number of supported Virtual Channels (VCs). InfiniFlow shatters this barrier by introducing **Upstream-Driven Dynamic Buffer Sharing**. By centralizing a unified credit pool at the upstream node and managing downstream buffer allocation dynamically, InfiniFlow decouples buffer requirements from VC count, reducing complexity to a constant **$O(1)$**.
 
-This repository contains the FPGA prototype implementation of InfiniFlow, targeting 100Gbps line-rate performance on Xilinx Alveo platforms.
+This repository hosts the **FPGA prototype implementation**, achieving **100Gbps line-rate** performance on the Xilinx Alveo U280 platform.
 
 ## 🚀 Key Features
 
-* **Massive VC Scalability:** Supports thousands of VCs (configurable via `QUEUE_INDEX_WIDTH`), enabling per-flow isolation to eliminate Head-of-Line Blocking (HoLB).
-* **Upstream-Driven Buffer Sharing:** Shifts buffer management logic to the upstream scheduler, allowing dynamic allocation of downstream resources without signaling latency penalties.
-* **Precise Buffer Usage Control:** Implements per-VC dynamic thresholds and "flying bytes" tracking (analogous to TCP sliding windows) to prevent buffer monopolization by congested flows.
+* **Massive Scalability:** Supports thousands of concurrent VCs (configurable via `QUEUE_INDEX_WIDTH`), enabling fine-grained per-flow isolation to fundamentally eliminate Head-of-Line Blocking (HoLB).
+* **Zero-Overhead Signaling:** Shifts complex buffer management to the upstream scheduler, allowing dynamic resource allocation without the signaling latency penalty of traditional downstream-driven schemes.
+* **Precise Congestion Control:** Implements a TCP-like "flying bytes" mechanism and dynamic thresholds per VC, ensuring fairness and preventing buffer monopolization by "victim flows."
 * **Hardware-Optimized Architecture:**
-    * Dual CMAC (100G Ethernet) integration for Upstream/Downstream nodes.
-    * Efficient CDC (Clock Domain Crossing) between User Logic (100MHz) and PHY Logic (322MHz).
-    * Pipeline-optimized Traffic Injector and Scheduler.
+    * **100G Line-Rate:** Integrated dual Xilinx CMAC (UltraScale+) cores for realistic PHY simulation.
+    * **Robust CDC:** Efficient Asynchronous FIFO designs handling 100MHz (User Logic) to 322MHz (Ethernet PHY) domain crossing.
+    * **Pipelined Logic:** Highly optimized Traffic Injector and Round-Robin Scheduler designed for high-frequency FPGA timing closure.
 
 ## 📂 Repository Structure
 
-The project follows a standard Tcl-driven directory structure for easy version control and reproduction:
+The project maintains a Tcl-driven workflow for version control cleanliness and reproducibility:
 
 ```text
 Infiniflow/
 ├── constr/                  # Xilinx Design Constraints
-│   └── co.xdc               # Pinout and Timing constraints
-├── doc/                     # Documentation and figures
+│   └── co.xdc               # Physical Pinout and Timing constraints for U280
+├── doc/                     # Documentation and Architecture Diagrams
 │   └── system_architecture.png
-├── scripts/                 # Tcl scripts for project recreation
-│   └── recreate_project.tcl
-├── sim/                     # SystemVerilog Testbenches
-│   ├── tb_system_top.sv     # Top-level logic simulation, CRITIAL:NO USED NOW.
-│   ├── tb_massive_traffic_injector.sv
-│   ├── tb_tx_scheduler_rr.sv
-│   └── tb_downstream_switch_model_bram.sv
+├── scripts/                 # Automation Scripts
+│   └── recreate_project.tcl # One-click Vivado project reconstruction
+├── sim/                     # Verification Environment
+│   ├── tb_massive_traffic_injector.sv       # [Core] Traffic Gen & Flow Control Logic Test
+│   ├── tb_tx_scheduler_rr.sv                # [Core] Round-Robin Scheduler Test
+│   ├── tb_downstream_switch_model_bram.sv   # [Core] Receiver Logic Test
+│   └── tb_system_top.sv                     # [Legacy] Full system wrapper sim (Deprecated)
 ├── src/
-│   ├── hdl/                 # RTL Source Code
-│   │   ├── bsfc_system_top.sv           # Top-level wrapper (User Logic + CMACs)
-│   │   ├── massive_traffic_injector.v   # Traffic generation & flow control engine
-│   │   ├── pkt_send_simulator.v         # Packet gen & Credit logic
-│   │   ├── tx_scheduler_rr.v            # Round-Robin Scheduler
-│   │   ├── downstream_switch_model_v2.v # Receiver/Switch simulation model
-│   │   ├── fcp_source/sink_adapter.v    # Flow Control Packet adapters
-│   │   ├── cmac_rate_meter.v            # Throughput monitoring
-│   │   └── axis_fifo.v                  # Custom FIFO wrappers
-│   └── ip/                  # IP Core configurations (.xci)
-│       ├── cmac_usplus_0/   # CMAC 0 (Upstream)
-│       ├── cmac_usplus_1/   # CMAC 1 (Downstream)
-│       └── ila_*/           # Integrated Logic Analyzers
+│   ├── hdl/                 # RTL Source Code (SystemVerilog)
+│   │   ├── bsfc_system_top.sv           # Top-Level Wrapper (Logic + CMACs)
+│   │   ├── massive_traffic_injector.v   # Main Traffic Engine & Credit Controller
+│   │   ├── pkt_send_simulator.v         # Packet Gen, BRAM State & Flying Bytes Logic
+│   │   ├── tx_scheduler_rr.v            # High-Performance RR Scheduler
+│   │   ├── downstream_switch_model_v2.v # Downstream Switch & Buffer Model
+│   │   ├── fcp_source/sink_adapter.v    # Flow Control Packet Protocol Adapters
+│   │   ├── cmac_rate_meter.v            # Hardware Performance Counters
+│   │   └── axis_fifo.v                  # CDC & Buffering wrappers
+│   └── ip/                  # Xilinx IP Configurations (.xci)
+│       ├── cmac_usplus_*/   # 100G Ethernet Subsystem Configs
+│       └── ila_*/           # Integrated Logic Analyzers for On-Chip Debug
 └── README.md
 ```
 
 ## 🛠️ Hardware Architecture
 
-The following diagram illustrates the high-level architecture of the `bsfc_system_top` module, highlighting the separation between the User Logic Domain (100MHz) and the high-speed PHY Domains (322MHz), connected via asynchronous FIFOs.
-![Image description](./doc/system_architecture.png)
-The system integrates the following key components:
+The system is partitioned into a **User Logic Domain (100MHz)** for complex flow control processing and a **PHY Domain (322MHz)** for line-rate transmission.
 
-### 1. Massive Traffic Injector (`massive_traffic_injector`)
+![System Architecture](./doc/system_architecture.png)
 
-This module is the core traffic generator and flow control engine. It coordinates two main sub-modules to manage traffic across potentially thousands of queues:
+### Core Components
 
-* **`tx_scheduler_rr`**: A high-performance Round-Robin scheduler capable of managing a massive number of queues (configurable via `QUEUE_INDEX_WIDTH`). It handles the request/grant handshake mechanism, selecting eligible queues for transmission and interfacing directly with the simulator.
-* **`pkt_send_simulator`**: This critical module acts as the "Traffic Engine." It not only generates packet data but also strictly enforces InfiniFlow's credit-based flow control logic. It utilizes BRAMs to maintain per-VC states—including **credit balance**, **dynamic thresholds**, and **"flying bytes"** (analogous to TCP sliding windows)—and processes incoming Flow Control Packets (FCP) to dynamically pause or resume queues based on downstream buffer availability.
+1.  **Massive Traffic Injector (`massive_traffic_injector`)**
+    The heart of the system. It orchestrates traffic across thousands of queues using two critical sub-blocks:
+    * **`tx_scheduler_rr`**: A scalable Round-Robin scheduler that handles the Request/Grant handshake, capable of iterating through thousands of queues to select eligible candidates for transmission.
+    * **`pkt_send_simulator`**: The "Traffic Engine." It manages the **Credit Loop**. It tracks `flying_bytes` (unacknowledged data), compares them against dynamic thresholds stored in BRAM, and processes incoming FCPs to pause/resume queues instantly.
 
-### 2. Switch Model (`downstream_inst`)
+2.  **Switch Model (`downstream_switch_model_v2`)**
+    Simulates the receiver. It manages the shared buffer pool and calculates the **Flow Control Credit Limit (FCCL)** and **Backlog**. This feedback is encapsulated into Flow Control Packets (FCP) and sent upstream to close the loop.
 
-Simulates the downstream receiver behavior. It receives data packets, manages a shared buffer pool, and generates Flow Control Packets (FCP/BCP) containing feedback information such as Flow Control Credit Limit (FCCL) and per-VC backlog size, which are sent back to the upstream node to close the control loop.
+3.  **CMAC Interface**
+    Two `cmac_usplus` instances mimic the physical Upstream and Downstream nodes. We use XPM Asynchronous FIFOs to handle the width conversion (64-bit logic $\leftrightarrow$ 512-bit PHY) and clock domain crossing.
 
-### 3. CMAC Interface
-
-Two `cmac_usplus` instances mimic the Upstream and Downstream nodes connected via a physical link. Async FIFOs (`xpm_fifo_async`) handle the data width conversion (64-bit  512-bit) and domain crossing between the 100MHz user domain and the 322MHz MAC domain.
-
-### Key Parameters
+### Key Configuration Parameters
 
 | Parameter | Default | Description |
-| --- | --- | --- |
-| `QUEUE_INDEX_WIDTH` | 16 | Bit-width for VC indexing (supports  queues). |
+| :--- | :--- | :--- |
+| `QUEUE_INDEX_WIDTH` | 16 | Bit-width for VC indexing (supports up to $2^{16}$ queues). |
 | `DATA_WIDTH` | 64 | User logic data path width (Targeting 512 for line-rate). |
 | `FCP_AXIS_WIDTH` | 128 | Width for Flow Control Packets. |
-| `QMAX` / `QMIN` | 6 / 3 | Dynamic threshold parameters for backlog management. |
-
+| `QMAX` / `QMIN` | 6 / 3 | Dynamic threshold hysteresis parameters. |
 
 ## ⚡ Getting Started
 
 ### Prerequisites
 
-> **⚠️ CRITICAL: IP License Required**
-> To successfully synthesize and implement this project, you **MUST** have a valid license for the **UltraScale+ Integrated 100G Ethernet Subsystem (CMAC)** IP core.
-> Without this license, bitstream generation will fail.
+> [!IMPORTANT]
+> **CRITICAL: IP License Required**
+> To synthesize and implement this design, you **MUST** possess a valid license for the **Xilinx UltraScale+ Integrated 100G Ethernet Subsystem (CMAC)** IP.
+> *Without this license, bitstream generation will fail.*
 
-* **Vivado Design Suite 2020.2** (or compatible version).
-* **Xilinx Alveo U280** Board files installed.
+* **Vivado Design Suite:** 2020.2 or later.
+* **Hardware:** Xilinx Alveo U280 Data Center Accelerator Card (Board files must be installed).
 
 ### Build Instructions
 
-We use a Tcl script to reconstruct the project to ensure a clean environment.
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/EmbedKun/Infiniflow.git
+    cd Infiniflow
+    ```
 
-1. **Clone the repository:**
-```bash
-git clone https://github.com/EmbedKun/Infiniflow.git
-cd Infiniflow
+2.  **Recreate Vivado Project:**
+    We provide a Tcl script to restore the full project structure automatically.
+    ```bash
+    vivado -mode batch -source ./scripts/recreate_project.tcl
+    ```
+    *This will create a `work/` directory containing the `Infiniflow.xpr` project.*
 
-```
-
-
-2. **Generate the Vivado Project:**
-Running the following command will create a `work/` directory and build the `.xpr` project file using the provided Tcl script.
-```bash
-vivado -mode batch -source ./scripts/recreate_project.tcl
-
-```
-
-
-3. **Open in Vivado:**
-```bash
-vivado ./work/Infiniflow.xpr
-
-```
-
+3.  **Launch Vivado:**
+    ```bash
+    vivado ./work/Infiniflow.xpr
+    ```
 
 ## 🔍 Simulation & Verification
 
-The verification strategy combines behavioral simulation for logic correctness and on-chip debugging for physical link validation.
+### Behavioral Simulation (Unit Tests)
+Due to the complexity of the full CMAC simulation, we prioritize **Unit Testing** for logic verification. The top-level testbench (`tb_system_top.sv`) is currently **deprecated**.
 
-### Behavioral Simulation
+Please use the following testbenches to verify core functionalities:
+* **`tb_massive_traffic_injector.sv`**: Verifies the credit loop, flying bytes tracking, and scheduler interaction.
+* **`tb_downstream_switch_model_bram.sv`**: Verifies buffer management and FCP generation.
 
-We provide `sim/tb_system_top.sv` for simulating the core user logic (Injector, Switch Model, Flow Control) **without** the physical CMAC IP. This allows for fast verification of the credit update mechanisms, scheduler fairness, and FCP processing logic in a pure logic environment.
-
-To run the simulation via CLI:
-
-```bash
-# Inside Vivado Tcl Console
-launch_simulation
-run all
-
-```
+To run these simulations:
+1.  Open Vivado.
+2.  In "Simulation Sources", right-click the desired testbench (e.g., `tb_massive_traffic_injector`).
+3.  Select **"Set as Top"**.
+4.  Click **"Run Simulation"**.
 
 ### Hardware Verification (ILA)
-
-For full system verification including the 100G Ethernet PHY, we utilize Xilinx **ILA (Integrated Logic Analyzer)** cores (`ila_0`, `ila_1`). These are inserted into the design to capture real-time signals on the FPGA board, allowing us to observe:
-
-* `stat_rx_aligned`: Verification of the physical link alignment status.
-* `fcp_valid` / `fcp_fccl`: Real-time monitoring of Flow Control Packet exchanges.
-* `m_axis_pkt_tvalid`: Observation of actual packet transmission throughput and flow control throttling.
-
+For full-system validation including the 100G PHY, we use **Integrated Logic Analyzers (ILA)**.
+* **Probes:** `ila_0` and `ila_1`.
+* **Key Signals:**
+    * `stat_rx_aligned`: Ensures physical link is up.
+    * `fcp_valid`: Monitors flow control feedback.
+    * `m_axis_pkt_tvalid`: Observes traffic throughput.
 
 ## 📧 Contact
 
-**Author:** mkxue-FNIL 2819422837@qq.com
+**Author:** mkxue-FNIL
+**Email:** 2819422837@qq.com
+
+---
+*This project is part of ongoing research into high-performance datacenter networking.*
