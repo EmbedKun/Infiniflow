@@ -32,7 +32,7 @@ module bsfc_system_top #
     parameter DRAIN_RATIO_M     = 4,
     parameter QMAX              = 6,
     parameter QMIN              = 3,
-    parameter IGNORE_FCP_MODE   = 2
+    parameter IGNORE_FCP_MODE   = 1
 )
 (
     input  wire sys_clk_p,      // 100MHz Diff Input
@@ -76,10 +76,10 @@ module bsfc_system_top #
     MMCME4_BASE #(
         .BANDWIDTH("OPTIMIZED"), .STARTUP_WAIT("FALSE"),
         .CLKIN1_PERIOD(10.0), 
-        .CLKFBOUT_MULT_F(10.0), .DIVCLK_DIVIDE(1),
-        .CLKOUT0_DIVIDE_F(8.0),
-        .CLKOUT1_DIVIDE(4),
-        .CLKOUT2_DIVIDE(10)
+        .CLKFBOUT_MULT_F(15.0), .DIVCLK_DIVIDE(1),
+        .CLKOUT0_DIVIDE_F(12.0),
+        .CLKOUT1_DIVIDE(5),
+        .CLKOUT2_DIVIDE(15)
     ) u_mmcm_gen (
         .CLKIN1(clk_100m_raw), .CLKFBIN(clk_fb_in), .CLKFBOUT(clk_fb_out),
         .CLKOUT0(clk_125m_out), .CLKOUT1(clk_300m_out), .CLKOUT2(clk_100m_out),
@@ -131,7 +131,7 @@ module bsfc_system_top #
         .sys_reset(sys_rst_async),
         .usr_tx_reset(gt0_usr_tx_reset), .usr_rx_reset(gt0_usr_rx_reset),
         .gtwiz_reset_tx_datapath(1'b0), .gtwiz_reset_rx_datapath(1'b0),
-        .ctl_tx_enable(1'b1), .ctl_rx_enable(1'b1), .gt_loopback_in(12'h000),
+        .ctl_tx_enable(1'b1), .ctl_rx_enable(1'b1), .gt_loopback_in(12'h249),
         
         .tx_axis_tready(c0_tx_tready), .tx_axis_tvalid(c0_tx_tvalid),
         .tx_axis_tdata(c0_tx_tdata), .tx_axis_tlast(c0_tx_tlast), .tx_axis_tkeep(c0_tx_tkeep),
@@ -150,7 +150,7 @@ module bsfc_system_top #
         .sys_reset(sys_rst_async),
         .usr_tx_reset(gt1_usr_tx_reset), .usr_rx_reset(gt1_usr_rx_reset),
         .gtwiz_reset_tx_datapath(1'b0), .gtwiz_reset_rx_datapath(1'b0),
-        .ctl_tx_enable(1'b1), .ctl_rx_enable(1'b1), .gt_loopback_in(12'h000),
+        .ctl_tx_enable(1'b1), .ctl_rx_enable(1'b1), .gt_loopback_in(12'h249),
         
         .tx_axis_tready(c1_tx_tready), .tx_axis_tvalid(c1_tx_tvalid),
         .tx_axis_tdata(c1_tx_tdata), .tx_axis_tlast(c1_tx_tlast), .tx_axis_tkeep(c1_tx_tkeep),
@@ -167,8 +167,8 @@ module bsfc_system_top #
     wire [31:0] tx0_pps, rx1_pps;
 
     // Reset for Rate Meter needs to be safe for 322M domain
-    wire rst_322m_0 = sys_rst_async || gt0_usr_tx_reset;
-    wire rst_322m_1 = sys_rst_async || gt1_usr_rx_reset;
+    wire rst_322m_0 = ~sys_rst_n;
+    wire rst_322m_1 = ~sys_rst_n;
 
     cmac_rate_meter u_meter_tx0 (.clk(gt0_txusrclk2), .rst(rst_322m_0), .stat_pulse(stat0_tx_total_packets), .cnt_total(tx0_total_pkts), .cnt_rate(tx0_pps));
     cmac_rate_meter u_meter_rx1 (.clk(gt1_txusrclk2), .rst(rst_322m_1), .stat_pulse(stat1_rx_total_packets), .cnt_total(rx1_total_pkts), .cnt_rate(rx1_pps));
@@ -176,46 +176,49 @@ module bsfc_system_top #
     // ========================================================================
     // 4. User Logic Reset Generation (Sync to 300MHz)
     // ========================================================================
-    reg [2:0] rst_user_sync_reg;
-    wire rst_user_300;
     
     // Combine all potential reset sources (Async System Reset + CMAC Not Ready)
     // Logic should be held in reset if ANY CMAC is not ready.
-    wire raw_reset_combine = sys_rst_async || gt0_usr_tx_reset || gt0_usr_rx_reset || gt1_usr_tx_reset || gt1_usr_rx_reset || !stat0_rx_aligned || !stat1_rx_aligned;
-
-    always @(posedge user_clk) begin
-        rst_user_sync_reg <= {rst_user_sync_reg[1:0], raw_reset_combine};
-    end
-    assign rst_user_300 = rst_user_sync_reg[2];
-
-    // ========================================================================
-    // 5. Upstream Logic (Injector) - Domain: user_clk (300MHz)
-    // ========================================================================
     
     // Enable Logic
     reg enable_up;
-    reg [23:0] up_cnt;
+    wire enable_internal;
+    
+    reg [15:0] up_cnt;
     always @(posedge user_clk) begin
-        if (rst_user_300) begin
+        if (sys_rst_async) begin
             up_cnt <= 0; enable_up <= 0;
         end else begin
-            if (up_cnt[23]) enable_up <= 1; else up_cnt <= up_cnt + 1;
+            if(mmcm_locked) begin
+                if (up_cnt==16'hFFFF)begin
+                    enable_up <= 1;
+                end
+                else begin
+                    up_cnt <= up_cnt + 1;
+                    enable_up <= 0;
+                end
+            end else begin
+                up_cnt <=0;
+                enable_up <= 0;
+            end
         end
     end
 
+    assign enable_internal = enable_up;
+    
     // --- Injector -> Async FIFO -> CMAC0 TX ---
     // Injector output (300M)
-    wire [511:0] inj_tdata;
-    wire [63:0]  inj_tkeep;
-    wire         inj_tvalid, inj_tlast, inj_tready;
-    wire         fifo_inj_full, fifo_inj_empty;
+    wire [DATA_WIDTH-1:0]   inj_tdata;
+    wire [63:0]             inj_tkeep;
+    wire                    inj_tvalid, inj_tlast, inj_tready;
+    wire                    fifo_inj_full, fifo_inj_empty;
 
     // xpm_fifo_async: 300M (Write) -> 322M (Read)
     xpm_fifo_async #(
         .FIFO_WRITE_DEPTH(512), .WRITE_DATA_WIDTH(577), .READ_DATA_WIDTH(577),
-        .READ_MODE("fwft"), .USE_ADV_FEATURES("0000"), .CDC_SYNC_STAGES(2),.FIFO_MEMORY_TYPE("ultra")
+        .READ_MODE("fwft"), .USE_ADV_FEATURES("0000"), .CDC_SYNC_STAGES(2),.FIFO_MEMORY_TYPE("auto")
     ) u_fifo_inj_c0 (
-        .rst(rst_user_300), 
+        .rst(~sys_rst_n), 
         .wr_clk(user_clk),
         .din({inj_tlast, inj_tkeep, inj_tdata}),
         .wr_en(inj_tvalid), .full(fifo_inj_full),
@@ -232,20 +235,21 @@ module bsfc_system_top #
     wire [511:0] unp_fifo_data;
     wire         unp_fifo_valid;
     wire         fifo_c0_empty;
+    wire         fifo_c0_full;
     
     xpm_fifo_async #(
         .FIFO_WRITE_DEPTH(512), .WRITE_DATA_WIDTH(512), .READ_DATA_WIDTH(512),
         .READ_MODE("fwft"), .USE_ADV_FEATURES("0000"), .CDC_SYNC_STAGES(2)
     ) u_fifo_c0_unp (
-        .rst(gt0_usr_rx_reset), // Reset from Write Domain
+        .rst(~sys_rst_n || gt0_usr_rx_reset), // Reset from Write Domain
         .wr_clk(gt0_txusrclk2), // CMAC RX is on TX clock
         .din(c0_rx_tdata), 
         .wr_en(c0_rx_tvalid),
         
         .rd_clk(user_clk),
         .dout(unp_fifo_data),
-        .rd_en(1'b1), // Unpacker always ready
-        .empty(fifo_c0_empty), .full()
+        .rd_en(1'b0), // Unpacker always ready
+        .empty(fifo_c0_empty), .full(fifo_c0_full)
     );
     assign unp_fifo_valid = ~fifo_c0_empty;
 
@@ -268,7 +272,7 @@ module bsfc_system_top #
         .DATA_WIDTH(DATA_WIDTH), .PKT_LEN_BYTES(PKT_LEN_BYTES),
         .BUFFER_ADDR_WIDTH(BUFFER_ADDR_WIDTH), .QMAX(QMAX), .QMIN(QMIN), .IGNORE_FCP_MODE(IGNORE_FCP_MODE)
     ) u_upstream_logic (
-        .clk(user_clk), .rst(rst_user_300), .enable(enable_up),
+        .clk(user_clk), .rst(~sys_rst_n), .enable(enable_internal),
         .stop_queue_idx(0), .stop_cmd_valid(0),
         .m_axis_pkt_tdata(inj_tdata), .m_axis_pkt_tvalid(inj_tvalid),
         .m_axis_pkt_tlast(inj_tlast), .m_axis_pkt_tkeep(inj_tkeep),
@@ -293,7 +297,7 @@ module bsfc_system_top #
         .FIFO_WRITE_DEPTH(512), .WRITE_DATA_WIDTH(577), .READ_DATA_WIDTH(577),
         .READ_MODE("fwft"), .USE_ADV_FEATURES("0000"), .CDC_SYNC_STAGES(2),.FIFO_MEMORY_TYPE("ultra")
     ) u_fifo_c1_sw (
-        .rst(gt1_usr_rx_reset), // Reset from Write Domain
+        .rst(~sys_rst_n || gt1_usr_rx_reset), // Reset from Write Domain
         .wr_clk(gt1_txusrclk2),
         .din({c1_rx_tlast, c1_rx_tkeep, c1_rx_tdata}),
         .wr_en(c1_rx_tvalid),
@@ -314,7 +318,7 @@ module bsfc_system_top #
         .QUEUE_INDEX_WIDTH(QUEUE_INDEX_WIDTH), .DATA_WIDTH(DATA_WIDTH),
         .BUFFER_ADDR_WIDTH(BUFFER_ADDR_WIDTH), .STAT_WIDTH(STAT_WIDTH), .DRAIN_RATIO_M(DRAIN_RATIO_M)
     ) u_downstream_logic (
-        .clk(user_clk), .rst(rst_user_300),
+        .clk(user_clk), .rst(~sys_rst_n),
         .s_axis_pkt_tdata(sw_rx_tdata), .s_axis_pkt_tvalid(sw_rx_tvalid),
         .s_axis_pkt_tlast(sw_rx_tlast), .s_axis_pkt_tkeep(sw_rx_tkeep),
         .s_axis_pkt_tready(sw_rx_tready),
@@ -339,7 +343,7 @@ module bsfc_system_top #
         .FIFO_WRITE_DEPTH(512), .WRITE_DATA_WIDTH(512), .READ_DATA_WIDTH(512),
         .READ_MODE("fwft"), .USE_ADV_FEATURES("0000"), .CDC_SYNC_STAGES(2)
     ) u_fifo_pk_c1 (
-        .rst(rst_user_300), 
+        .rst(~sys_rst_n), 
         .wr_clk(user_clk),
         .din(pk_tdata),
         .wr_en(pk_tvalid), .full(fifo_pk_full),
@@ -360,15 +364,8 @@ module bsfc_system_top #
     
     wire [31:0] tx0_pps_sync;
     wire [31:0] rx1_pps_sync;
-    reg         gt_clk_heartbeat = 0;
     
-    // A. Clock Heartbeat Generation (To verify GT clock is alive)
-    // Runs on gt0_txusrclk2, captured by ILA on user_clk
-    always @(posedge gt0_txusrclk2) begin
-        gt_clk_heartbeat <= ~gt_clk_heartbeat;
-    end
-
-    // B. Statistics Synchronization (PPS is quasi-static, 1 update/sec)
+    // Statistics Synchronization (PPS is quasi-static, 1 update/sec)
     xpm_cdc_array_single #(
         .DEST_SYNC_FF(2), .WIDTH(32), .SIM_ASSERT_CHK(0), .SRC_INPUT_REG(0)
     ) u_sync_tx_pps (
@@ -388,12 +385,13 @@ module bsfc_system_top #
     // ---------------------------------------------------------
     // IMPORTANT: Make sure to generate an ILA IP in Vivado with:
     // - Name: ila_0
+    wire gt_clk_heartbeat = 1;
     
     ila_0 u_ila_debug (
         .clk(user_clk), // ILA runs on 300MHz User Clock
 
         // [Probe 0] FCP Upstream Protocol (Grouped for readability)
-        .probe0 ({us_fcp_valid, us_fcp_vc, us_fcp_fccr, us_fcp_fccl}), 
+        .probe0 ({us_fcp_valid, us_fcp_vc, us_fcp_fccr, us_fcp_qlen}), 
         // Bit Mapping Suggestion:
         // [79:48] FCCL (32b)
         // [47:16] FCCR (32b)
@@ -403,10 +401,10 @@ module bsfc_system_top #
         // [Probe 1] Statistics & Heartbeats
         .probe1 (tx0_pps_sync),     // [31:0] CMAC0 TX Speed (Pkts/Sec)
         .probe2 (rx1_pps_sync),     // [31:0] CMAC1 RX Speed (Pkts/Sec)
-        .probe3 (gt_clk_heartbeat), // [0:0]  Toggling means GT Clock is alive
+        .probe3 (stat0_rx_aligned), // [0:0]  Toggling means GT Clock is alive
         
         // [Probe 2] User Logic Status
-        .probe4 (rst_user_300),     // [0:0]  User Reset Status (Should be 0)
+        .probe4 (fifo_c0_empty),     // [0:0]  User Reset Status (Should be 0)
         .probe5 (inj_tx_cnt),       // [63:0] Injection Counter (Should increment)
         
         // [Probe 3] Data Path (Downstream Switch Input)
@@ -414,6 +412,10 @@ module bsfc_system_top #
         // If timing fails, consider probing only the lower 64 bits.
         .probe6 (sw_rx_tdata),      // [511:0] Switch RX Data
         .probe7 (sw_rx_tvalid),     // [0:0]   Switch RX Valid
-        .probe8 (sw_rx_tready)      // [0:0]   Switch RX Ready
+        .probe8 (sw_rx_tready),     // [0:0]   Switch RX Ready
+        .probe9(fifo_inj_empty),
+        .probe10(fifo_inj_full),
+        .probe11(inj_tvalid),
+        .probe12(inj_tlast)
     );
 endmodule

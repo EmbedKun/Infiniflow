@@ -194,6 +194,10 @@ module pkt_send_simulator #
     reg [31:0] fcp_calc_new_thresh;
     reg [31:0] fcp_calc_old_thresh;
 
+    reg [15:0] fcp_calc_inflight_16;
+    reg [15:0] fcp_calc_new_thresh_16;
+    reg [15:0] fcp_calc_old_thresh_16;
+    
     always @(posedge clk) begin
         fccr_web   <= 0;
         thresh_web <= 0;
@@ -231,21 +235,23 @@ module pkt_send_simulator #
                     // 1. Calc Inflight & Threshold (Same as before)
                     fccr_web  <= 1; fccr_addrb <= lat_vc; fccr_dinb  <= lat_fccr;
                     
-                    fcp_calc_inflight = tx_cnt_doutb - lat_fccr;
-                    fcp_calc_old_thresh = thresh_doutb;
-                    
-                    if (lat_qlen > QMAX) fcp_calc_new_thresh = fcp_calc_inflight - lat_qlen + QMIN;
-                    else if (lat_qlen < QMIN) fcp_calc_new_thresh = fcp_calc_old_thresh - lat_qlen + QMIN;
-                    else fcp_calc_new_thresh = fcp_calc_old_thresh;
-                    
-                    if (fcp_calc_new_thresh < 1) fcp_calc_new_thresh = 1;
+//                    fcp_calc_inflight = tx_cnt_doutb - lat_fccr;
+//                    fcp_calc_old_thresh = thresh_doutb;
+                    fcp_calc_inflight_16 = tx_cnt_doutb[15:0] - lat_fccr[15:0];
+                    fcp_calc_old_thresh_16 = thresh_doutb[15:0];
 
-                    thresh_web   <= 1; thresh_addrb <= lat_vc; thresh_dinb  <= fcp_calc_new_thresh;
+                    if (lat_qlen > QMAX) fcp_calc_new_thresh_16 = fcp_calc_inflight_16 - lat_qlen[15:0] + QMIN;
+                    else if (lat_qlen < QMIN) fcp_calc_new_thresh_16 = fcp_calc_old_thresh_16 - lat_qlen[15:0] + QMIN;
+                    else fcp_calc_new_thresh_16 = fcp_calc_old_thresh_16;
+                    
+                    if (fcp_calc_new_thresh_16 < 1) fcp_calc_new_thresh_16 = 1;
+
+                    thresh_web   <= 1; thresh_addrb <= lat_vc; thresh_dinb  <= {16'd0,fcp_calc_new_thresh_16};
                     
                     // 2. CHECK RESUME CONDITION
                     // If queue was stopped AND now (Inflight < New_Threshold)
                     // Note: fc_stop_doutb is valid from READ state
-                    if (fc_stop_doutb == 1'b1 && fcp_calc_inflight < fcp_calc_new_thresh) begin
+                    if (fc_stop_doutb == 1'b1 && fcp_calc_inflight_16 < fcp_calc_new_thresh_16) begin
                         // Need to resume!
                         // Clear Stop Flag
                         fc_stop_web  <= 1;
@@ -276,13 +282,13 @@ module pkt_send_simulator #
     reg [REQ_TAG_WIDTH-1:0]     tx_tag;
     reg [31:0]                  word_cnt;
 
-    reg [31:0] tx_calc_inflight;
+    reg [15:0] tx_calc_inflight_16;
     reg doorbell_req_tx;
 
     always @(posedge clk) begin
         tx_cnt_wea <= 0; fc_stop_wea <= 0;
         m_axis_pkt_tvalid <= 0; m_axis_pkt_tlast <= 0; m_axis_tx_req_status_valid <= 0;
-        tx_calc_inflight = 0;
+        tx_calc_inflight_16 = 0;
         
         if (rst) begin
             tx_state <= TX_IDLE; s_axis_tx_req_ready <= 0;
@@ -311,8 +317,8 @@ module pkt_send_simulator #
                 end
                 
                 TX_CHECK: begin
-                    tx_calc_inflight = tx_cnt_douta - fccr_douta;
-                    if ( (IGNORE_FCP_MODE == 1'b1 || ((tx_calc_inflight < thresh_douta) && (global_credit > 2))) && (stop_douta == 1'b0) ) begin
+                    tx_calc_inflight_16 = tx_cnt_douta[15:0] - fccr_douta[15:0];
+                    if ( (IGNORE_FCP_MODE == 1'b1 || ((tx_calc_inflight_16 < thresh_douta[15:0]) && (global_credit > 2))) && (stop_douta == 1'b0) ) begin
 //                    if ((tx_calc_inflight < thresh_douta) && (global_credit > 2) && (stop_douta == 1'b0)) begin
                         // Pass
                         word_cnt <= 0;
